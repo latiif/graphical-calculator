@@ -5,7 +5,7 @@ import Data.List.Split
 import Text.Printf
 import Test.QuickCheck
 
-data Expr =  Number Float
+data Expr =  Number Double
            | Add Expr Expr
            | Mult Expr Expr
            | Cosine Expr
@@ -39,7 +39,7 @@ showFactor (Mult a b)                          = "("++ showExpr (Mult a b) ++")"
 showFactor e = showExpr e
 
 
-eval :: Expr -> Float -> Float
+eval :: Expr -> Double -> Double
 eval (Number    x)   _   = x
 eval (Add  op1 op2) val  = eval op1 val + eval op2 val
 eval (Mult op1 op2) val  = eval op1 val * eval op2 val
@@ -49,16 +49,16 @@ eval (Sine     op1) val  = sin $ eval op1 val
 
 -- Parsing
 -- | Parse a number, integer or decimal
-number :: Parser Float
+number :: Parser Double
 number = floating <|> (read <$> oneOrMore digit) 
 
 
 digits :: Parser String
 digits =  oneOrMore digit
 
--- Given "x.y" returns the float value of them
-merge :: String -> String -> Float
-merge x y = read (x ++"."++y) :: Float
+-- Given "x.y" returns the double value of them
+merge :: String -> String -> Double
+merge x y = read (x ++"."++y) :: Double
 
 -- | Parse a specific sequence of characters
 string :: String -> Parser String
@@ -68,18 +68,18 @@ string (c:s) = do c' <- char c
                   return (c':s')
 
 -- Parser for decimal point numbers
-floating :: Parser Float
+floating :: Parser Double
 floating = do int <- digits
               char '.'
               dec <- digits
               return (merge int dec)
 
 -- | Parse two numbers, separated by +, and add them
-addition :: Parser Float
+addition :: Parser Double
 addition = operator '+' (+)
 
 -- | Parse two numbers, separated by *, and multiply them
-multiplication :: Parser Float
+multiplication :: Parser Double
 multiplication = operator '*' (*)
 
 operator c op = do n1 <- number
@@ -195,7 +195,7 @@ sizeExpr (Cosine op)    = sizeExpr op
 sizeExpr (Sine op)      = sizeExpr op 
 
 
-prop_simplify :: Expr -> Float -> Bool
+prop_simplify :: Expr -> Double -> Bool
 prop_simplify exp val = equivalent && sizeChange
                 where simplified = simplify exp
                       equivalent = all (== True)  [eval simplified x == eval exp x | x<- [(-val')..val']]
