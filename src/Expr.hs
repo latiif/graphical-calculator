@@ -5,62 +5,47 @@ import Data.List.Split
 import Text.Printf
 import Test.QuickCheck
 
-data Expr =               Number Float
-                     |    Add Expr Expr
-                     |    Mult Expr Expr
-                     |    Cosine Expr
-                     |    Sine Expr
-                     |    Variable
-            deriving (Eq,Show)
+data Expr =  Number Float
+           | Add Expr Expr
+           | Mult Expr Expr
+           | Cosine Expr
+           | Sine Expr
+           | Variable
+        deriving Eq
 
 
-            {-
+        
 instance Show Expr where
   show = showExpr
--}
 
-  {-
-instance Eq Expr where
-    e1 == e2 = bruteForceEval e1 e2
-    -}
-
-bruteForceEval :: Expr -> Expr -> Bool
-bruteForceEval e1 e2  = eval1 == eval2 
-    where eval1 = simplify e1
-          eval2 = simplify e2
 
 showExpr :: Expr -> String
 showExpr (Number x) = printf "%f" x 
 
-showExpr (Add op1@(Number _) op2@(Number _))    = showExpr op1 ++ "+" ++ showExpr op2  
-showExpr (Add op1 op2)                           = showExpr op1 ++ "+" ++ showFactor op2  
---showExpr (Add op1 op2)                          = showExpr op1 ++ "+" ++ showExpr op2
+showExpr (Add op1@(Number _) op2@(Number _))   = showExpr op1 ++ "+" ++ showExpr op2  
+showExpr (Add op1 op2)                         = showExpr op1 ++ "+" ++ showFactor op2  
 
-showExpr (Mult op1@(Number _) op2@(Number _))    = showExpr op1 ++ "*" ++ showExpr op2  
-showExpr (Mult op1 op2)                           = showExpr op1 ++ "*" ++ showFactor op2 
+showExpr (Mult op1@(Number _) op2@(Number _))  = showExpr op1 ++ "*" ++ showExpr op2  
+showExpr (Mult op1 op2)                        = showExpr op1 ++ "*" ++ showFactor op2 
 
 
-showExpr (Variable) = "x"  
---showExpr (Mult op1 op2) = showFactor op1 ++ "*" ++ showFactor op2
-showExpr (Cosine op1) = "cos(" ++ showExpr op1 ++ ")"
-showExpr (Sine op1) = "sin(" ++ showExpr op1++ ")"
+showExpr (Variable)                            = "x"  
+showExpr (Cosine op1)                          = "cos(" ++ showExpr op1 ++ ")"
+showExpr (Sine op1)                            = "sin(" ++ showExpr op1++ ")"
 
 showFactor :: Expr -> String
-showFactor (Add a b) = "("++ showExpr (Add a b) ++")"
-showFactor (Mult a b) = "("++ showExpr (Mult a b) ++")"
-
+showFactor (Add a b)                           = "("++ showExpr (Add a b) ++")"
+showFactor (Mult a b)                          = "("++ showExpr (Mult a b) ++")"
 showFactor e = showExpr e
 
 
-
-
 eval :: Expr -> Float -> Float
-eval (Number x) _ = x
-eval (Add op1 op2) val = eval op1 val + eval op2 val
-eval (Mult op1 op2) val = eval op1 val * eval op2 val
-eval Variable val = val
-eval (Cosine op1) val = cos $ eval op1 val
-eval (Sine op1) val = sin $ eval op1 val
+eval (Number    x)   _   = x
+eval (Add  op1 op2) val  = eval op1 val + eval op2 val
+eval (Mult op1 op2) val  = eval op1 val * eval op2 val
+eval  Variable val       = val
+eval (Cosine   op1) val  = cos $ eval op1 val
+eval (Sine     op1) val  = sin $ eval op1 val
 
 -- Parsing
 -- | Parse a number, integer or decimal
@@ -108,8 +93,6 @@ unaryFunction str unaryF = (
     <|>
     (unaryF <$> (string (str++"(") *> expr <* char ')')))
 
-calculation :: Parser Float
-calculation = addition <|> multiplication
 
 expr, term, factor :: Parser Expr
 expr = leftAssoc Add  term (char '+')
@@ -148,7 +131,7 @@ readExpr s = case parse expr s of
 prop_ShowReadExpr :: Expr -> Bool
 prop_ShowReadExpr e | translated == e = True
                     | otherwise = error $ show translated ++"\t"++ showExpr translated ++"\n" ++ show e ++"\t"++ showExpr e
-    where translated = fromJust $ (readExpr . showExpr) e                    
+    where translated = fromJust $ (readExpr . show) e                    
 
 
 
