@@ -5,6 +5,7 @@
 import ThreepennyPages
 import Graphics.UI.Threepenny.Core as UI
 import Expr
+import GHC.Float
 import qualified Graphics.UI.Threepenny as UI
 
 canWidth,canHeight :: Num a => a
@@ -48,4 +49,25 @@ readAndDraw input canvas =
      -- It should be replaced with code that draws the graph of the function.
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
      UI.fillText formula (10,canHeight/2) canvas
-     path "blue" [(10,10),(canWidth-10,canHeight/2)] canvas
+     case readExpr formula of 
+                            (Just exp) ->   path "blue" (points exp 0.02 (300,300)) canvas
+                            _ -> UI.fillText "WRONG" (10,canHeight/2) canvas
+type Point = (Double, Double)
+
+points :: Expr          -- An expression 
+        -> Double       -- A scaling value
+        -> (Int,Int)    -- The width and height of the drawing area
+        -> [Main.Point]
+
+points exp scale (width, height) = [(pixel, cartesianToPixel (eval exp (pixelToCartesian pixel))) | pixel <- map fromIntegral [0..width]]
+    where
+      -- converts a pixel x-coordinate to a cartesian x-coordinate
+      pixelToCartesian :: Double -> Double
+      pixelToCartesian x = x*scale - (fromIntegral width * scale) / 2
+
+      -- converts a cartesian y-coordinate to a pixel y-coordinate
+      cartesianToPixel :: Double -> Double
+      cartesianToPixel y = (y - (fromIntegral height * scale) / 2) / ((-1) * scale)
+
+
+
