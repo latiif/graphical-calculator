@@ -12,6 +12,8 @@ canWidth,canHeight :: Num a => a
 canWidth  = 300
 canHeight = 300
 
+origScale = 0.04
+
 main :: IO ()
 main = startGUI defaultConfig setup
 
@@ -54,7 +56,7 @@ readAndDraw input canvas =
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
      case readExpr formula of 
                             (Just exp) -> do
-                                              path "blue" (points exp 0.02 (canHeight,canHeight)) canvas
+                                              path "blue" (points exp origScale (canHeight,canHeight)) canvas
                                               UI.fillText ((showExpr . simplify ) exp) (10,canHeight/2) canvas
 
                             _ -> UI.fillText "WRONG" (10,canHeight/2) canvas
@@ -71,7 +73,7 @@ readAndDiff input canvas =
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
      case readExpr formula of 
                             (Just exp) -> do
-                                              path "red" (points (differentiate exp) 0.02 (canHeight,canHeight)) canvas
+                                              path "red" (points (differentiate exp) origScale (canHeight,canHeight)) canvas
                                               UI.fillText ((showExpr . simplify ) exp) (10,canHeight/2) canvas
 
                             _ -> UI.fillText "WRONG" (10,canHeight/2) canvas                            
@@ -81,7 +83,6 @@ points :: Expr          -- An expression
         -> Double       -- A scaling value
         -> (Int,Int)    -- The width and height of the drawing area
         -> [Main.Point]
-
 points exp scale (width, height) = [(pixel, cartesianToPixel (eval exp (pixelToCartesian pixel))) | pixel <- map fromIntegral [0..width]]
     where
       -- converts a pixel x-coordinate to a cartesian x-coordinate
