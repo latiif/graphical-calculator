@@ -28,8 +28,8 @@ setup window =
 
      --
      slider  <- mkSlider (50,200) 100 
-     maxZoom <- mkHTML "<b>200%</b>"
-     minZoom <- mkHTML "<b>50%</b>"
+     maxZoom <- mkHTML "<b>50%</b>"
+     minZoom <- mkHTML "<b>200%</b>"
 
      zoomBox <- column [row [pure minZoom, pure slider, pure maxZoom]]
     
@@ -60,7 +60,7 @@ readAndDraw input canvas slider =
      formula <- get value input
      scale <- get value slider
      -- Clear the canvas
-     clearCanvas canvas
+     resetCanvas canvas
      -- The following code draws the formula text in the canvas and a blue line.
      -- It should be replaced with code that draws the graph of the function.
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
@@ -77,15 +77,14 @@ readAndDiff input canvas slider =
   do -- Get the current formula (a String) from the input element
      formula <- get value input
      scale <- get value slider
-     -- Clear the canvas
-     --clearCanvas canvas
      -- The following code draws the formula text in the canvas and a blue line.
      -- It should be replaced with code that draws the graph of the function.
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
      case readExpr formula of 
                             (Just exp) -> do
+                                              
                                               path "red" (points (differentiate exp) (calculateScale scale) (canHeight,canHeight)) canvas
-                                              UI.fillText ((showExpr . simplify ) exp) (10,canHeight/2) canvas
+                                              UI.fillText ((showExpr . differentiate ) exp) (10,canHeight/2 + 20) canvas
 
                             _ -> UI.fillText "WRONG" (10,canHeight/2) canvas                            
 type Point = (Double, Double)
@@ -108,3 +107,10 @@ calculateScale :: String -> Double
 calculateScale str = percentage*origScale / (100)
               where percentage = read (str):: Double
 
+-- Resets the canvas and draws axis              
+resetCanvas :: Canvas -> UI ()
+resetCanvas canvas =
+    do 
+      clearCanvas canvas
+      path "grey" [(150,0),(150,300)] canvas
+      path "grey" [(0,150),(300,150)] canvas
