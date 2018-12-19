@@ -50,7 +50,20 @@ eval (Sine     op1) val  = sin $ eval op1 val
 -- Parsing
 -- | Parse an integer (adapted with changes from lecture notes)
 number :: Parser Double
-number = read <$> oneOrMore digit
+number = tryNegative $ read <$> oneOrMore digit    
+                   
+
+-- Helper function to help read and parse negative numbers
+
+tryNegative :: Parser Double        -- the positive parser
+            -> Parser Double        -- the result of the parser, either pos or neg
+tryNegative positiveParser =  
+    positiveParser                       -- read positives only
+    <|>                                  -- OR
+    (do                                
+    _ <- char '-'                        -- read a minus 
+    k <- positiveParser                  -- read the rest of the positives
+    return (-k))                         -- return the -1 * the positives
 
 -- Borrowed from lecture notes and example in the module Parsing
 digits :: Parser String
@@ -69,10 +82,10 @@ string (c:s) = do c' <- char c
 
 -- Parser for decimal point numbers
 floating :: Parser Double
-floating = do int <- digits
-              char '.'
-              dec <- digits
-              return (merge int dec)
+floating = tryNegative $ do int <- digits
+                            char '.'
+                            dec <- digits
+                            return (merge int dec)
 
 -- |Generalizes out the process of parsing a unary operation                   
 unaryFunction :: String -> (Expr -> Expr) -> Parser Expr
@@ -135,7 +148,7 @@ arbExpr :: Int ->  Gen Expr
 arbExpr n | n <=0  = return $ Number 1
 arbExpr 1 = oneof [return Variable,
 	           do k <- arbitrary
-		      return (Number $ abs k )]
+		      return (Number k)]
 arbExpr n | even n = do 
 		      op1 <- arbExpr ((n-1) `div` 2)
 		      op2 <- arbExpr ((n-1) `div` 2)
@@ -146,41 +159,55 @@ arbExpr n | odd n  = do
 		      oneof [return $ Cosine op1,
 			         return $ Sine op1]		
 
--- Helper function to generate double numbers that shouldnt be written using the e-notaion
--- Not USED
-roundToDecimalPlaces :: Double -> Int -> Double
-roundToDecimalPlaces number precision =  fromInteger (round $ number * (10^precision)) / (10.0^^precision)
 
 
 -- Simplifies an expression
 simplify :: Expr -> Expr
-simplify exp = if sizeExpr simplified < sizeExpr exp
+simplify exp = if sizeExpr simplified < sizeExpr exp    -- if no change in size is possible, return original
                 then simplify simplified
                 else exp
         where simplified = simplify' exp
 
 -- called by the simplify wrapper, open for additional rules        
 simplify' :: Expr -> Expr
+
+-- 0 is neutral in "+"
 simplify' (Add exp (Number 0)) = simplify' exp
 simplify' (Add (Number 0) exp) = simplify' exp
 
+-- 1 is neutral in "*"
 simplify' (Mult exp (Number 1)) = simplify' exp
 simplify' (Mult (Number 1) exp) = simplify' exp
 
+-- 0*x = 0 AND x*0 = 0
 simplify' (Mult exp (Number 0)) = Number 0
 simplify' (Mult (Number 0) exp) = Number 0
 
-simplify' (Add (Number n1) (Number n2))     = Number $ n1 + n2
-simplify' (Mult (Number n1) (Number n2))    = Number $ n1 * n2
-simplify' (Cosine (Number n))               = Number $ cos n
-simplify' (Sine (Number n))                 = Number $ sin n
+simplify' (Add      (Number n1) (Number n2))        = Number $ n1 + n2
+simplify' (Mult     (Number n1) (Number n2))        = Number $ n1 * n2
+simplify' (Cosine   (Number n))                     = Number $ cos n
+simplify' (Sine     (Number n))                     = Number $ sin n
 
-simplify' Variable = Variable
-simplify' (Add e1 e2) = Add (simplify' e1) (simplify' e2)
-simplify' (Mult e1 e2) = Mult (simplify' e1) (simplify' e2)
-simplify' (Cosine e) = Cosine (simplify' e)
-simplify' (Sine e) = Sine (simplify' e)
-simplify' e = e
+simplify' Variable      = Variable
+simplify' (Add e1 e2)   = Add       (simplify' e1) (simplify' e2)
+simplify' (Mult e1 e2)  = Mult      (simplify' e1) (simplify' e2)
+simplify' (Cosine e)    = Cosine    (simplify' e )
+simplify' (Sine e)      = Sine      (simplify' e )
+
+simplify' e | not $ hasVariable e = Number $ eval e 0
+            | otherwise           = e
+
+
+-- checks if an expression has a variable
+hasVariable :: Expr -> Bool
+hasVariable (Add op1 op2)   = hasVariable op1 || hasVariable op2
+hasVariable (Mult op1 op2)  = hasVariable op1 || hasVariable op2
+
+hasVariable (Sine op)           = hasVariable op
+hasVariable (Cosine op)         = hasVariable op
+
+hasVariable (Number _)  = False
+hasVariable Variable    = True
 
 
 -- Calculates the size of an expression
@@ -197,8 +224,8 @@ sizeExpr (Sine op)      = 1 + sizeExpr op
 prop_simplify :: Expr -> Double -> Bool
 prop_simplify exp val = equivalent && sizeChange
                 where simplified = simplify exp
-                      equivalent = all (== True)  [eval simplified x == eval exp x | x<- [(-val')..val']]
-                      sizeChange = sizeExpr simplified <= sizeExpr exp
+                      equivalent = all (== True)  [eval simplified x == eval exp x | x<- [(-val')..val']]  -- both should evaluate the same
+                      sizeChange = sizeExpr simplified <= sizeExpr exp                                     -- simplified in size
                       val' = abs val
 
 -- Wrapper function for differentiation and it simplifies

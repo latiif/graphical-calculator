@@ -46,7 +46,7 @@ setup window =
      pure input # set style [("fontSize","14pt")]
      pure btns  # set style [("align","center")]
 
-     -- Interaction (install event handlers)
+     -- Interaction and event handling
      on UI.click     draw  $ \ _ -> readAndDraw input canvas slider
      on valueChange' input $ \ _ -> readAndDraw input canvas slider
      on UI.click     diff  $ \ _ -> readAndDiff input canvas slider
