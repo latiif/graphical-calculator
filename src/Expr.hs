@@ -24,24 +24,18 @@ instance Show Expr where
 
 -- Used to display paranthesis in a way that preserves information  
 showExpr :: Expr -> String
-showExpr (Number x) = printf "%f" x 
+showExpr (Add e1 e2@(Number _)) = showExpr e1 ++ " + " ++ showExpr e2
+showExpr (Add e1 e2)            = showExpr e1 ++ " + " ++ showFactor e2
+showExpr e                      = showFactor e
 
-showExpr (Add op1@(Number _) op2@(Number _))   = showExpr op1 ++ "+" ++ showExpr op2  
-showExpr (Add op1 op2)                         = showExpr op1 ++ "+" ++ showFactor op2  
-
-showExpr (Mult op1@(Number _) op2@(Number _))  = showExpr op1 ++ "*" ++ showExpr op2  
-showExpr (Mult op1 op2)                        = showExpr op1 ++ "*" ++ showFactor op2 
-
-
-showExpr (Variable)                            = "x"  
-showExpr (Cosine op1)                          = "cos(" ++ showExpr op1 ++ ")"
-showExpr (Sine op1)                            = "sin(" ++ showExpr op1++ ")"
-
--- Borrowed form the lecture notes with adapatations
 showFactor :: Expr -> String
-showFactor (Add a b)                           = "("++ showExpr (Add a b) ++")"
-showFactor (Mult a b)                          = "("++ showExpr (Mult a b) ++")"
-showFactor e = showExpr e
+showFactor (Mult e1 e2)     = showFactor e1 ++ "*(" ++ showFactor e2++")"
+showFactor (Number n)       = printf "%f" n                                 -- printf is used to avoid the "e"-notaiton
+showFactor Variable         = "x"
+showFactor (Cosine op1)     = "cos (" ++ showExpr op1 ++ ")"
+showFactor (Sine op1)       = "sin (" ++ showExpr op1++ ")"
+
+showFactor e       = "("++showExpr e++")"
 
 
 -- Evaulates the expression given a value for the variable
@@ -54,10 +48,9 @@ eval (Cosine   op1) val  = cos $ eval op1 val
 eval (Sine     op1) val  = sin $ eval op1 val
 
 -- Parsing
--- | Parse a number, float or integer (adapted with changes from lecture notes)
+-- | Parse an integer (adapted with changes from lecture notes)
 number :: Parser Double
-number = floating <|> 
-        (read <$> oneOrMore digit) 
+number = read <$> oneOrMore digit
 
 -- Borrowed from lecture notes and example in the module Parsing
 digits :: Parser String
@@ -97,10 +90,11 @@ operator c op = do n1 <- number
 
 -- |Generalizes out the process of parsing a unary operation                   
 unaryFunction :: String -> (Expr -> Expr) -> Parser Expr
-unaryFunction str unaryF = (
-    (unaryF <$> (string (str++" ") *> term ))
+unaryFunction str unaryF = 
+    (unaryF <$> (string (str++" (") *> expr <* char ')'))
     <|>
-    (unaryF <$> (string (str++"(") *> expr <* char ')')))
+    (unaryF <$> (string (str++" ") *> term ))
+    
 
 -- Detects the existence and parses a variable
 variable :: Parser Expr
@@ -109,20 +103,20 @@ variable = do
             return Variable
 
 expr, term, factor :: Parser Expr
-expr = leftAssoc Add  term (char '+')   -- Expression is built from adding on terms
-term = leftAssoc Mult factor (char '*') -- Term is factors that are multiplied with other factors
+expr = leftAssoc Add  term (string " + ")   -- Expression is built from adding on terms
+term = leftAssoc Mult factor (char '*')     -- Term is factors that are multiplied with other factors
 factor =
-    (char '(' *> expr <* char ')')      -- anything withint paranthesis (2+4)
+    char '(' *> expr <* char ')'      -- anything withint paranthesis (2+4)
     <|>
-    (unaryFunction "cos" Cosine)        -- for cos
+    unaryFunction "cos" Cosine        -- for cos
     <|>
-    (unaryFunction "sin" Sine)          -- sin
+    unaryFunction "sin" Sine          -- sin
     <|>
-    variable                            -- variable (x)
+    variable                          -- variable (x)
     <|>
-    (Number <$> floating)               -- floating number
+    (Number <$> floating)             -- floating number
     <|>
-    (Number <$> number)                 -- an integer number
+    (Number <$> number)               -- an integer number
         
         
             
@@ -137,15 +131,14 @@ readExpr :: String -> Maybe Expr
 readExpr s = case parse expr s of
              Just (e,"") -> return e
              _           -> Nothing
-           where noSpaces = filter (/= ' ') s
  
            
 -- Makes sure that parsing and reading an expression conserves information           
 prop_ShowReadExpr :: Expr -> Bool
 prop_ShowReadExpr e | translated == e = True
-                    | otherwise = error $ show translated ++"\t"++ showExpr translated ++"\n" ++ show e ++"\t"++ showExpr e
-    where translated = case (readExpr . show) e of
-                        Just(e) -> e
+                    | otherwise = error $ show translated ++"\n" ++ show e
+    where translated = case (readExpr . showExpr) e of
+                        Just e -> e
                         _       -> error "Unable to read expression" 
 
 -- We need to be able to create random instances of our Expr type
@@ -153,20 +146,24 @@ instance Arbitrary Expr where
     arbitrary = sized arbExpr
 
 arbExpr :: Int ->  Gen Expr
-arbExpr n | n <=0  = do return $ Number 1
-arbExpr 1 = oneof [do return Variable,
+arbExpr n | n <=0  = return $ Number 1
+arbExpr 1 = oneof [return Variable,
 	           do k <- arbitrary
-		      return $ (Number $  abs(k))]
+		      return (Number $ abs k )]
 arbExpr n | even n = do 
 		      op1 <- arbExpr ((n-1) `div` 2)
 		      op2 <- arbExpr ((n-1) `div` 2)
-	              oneof [do return $ Add op1 op2,
-			     do return $  Mult op1 op2]			
+	              oneof [return $ Add op1 op2,
+			             return $  Mult op1 op2]			
 arbExpr n | odd n  = do 
 		      op1 <- arbExpr (n-1)
-		      oneof [do return $ Cosine op1,
-			     do return $ Sine op1]		
+		      oneof [return $ Cosine op1,
+			         return $ Sine op1]		
 
+-- Helper function to generate double numbers that shouldnt be written using the e-notaion
+-- Not USED
+roundToDecimalPlaces :: Double -> Int -> Double
+roundToDecimalPlaces number precision =  fromInteger (round $ number * (10^precision)) / (10.0^^precision)
 
 
 -- Simplifies an expression
@@ -187,10 +184,10 @@ simplify' (Mult (Number 1) exp) = simplify' exp
 simplify' (Mult exp (Number 0)) = Number 0
 simplify' (Mult (Number 0) exp) = Number 0
 
-simplify' (Add (Number n1) (Number n2)) = Number $ n1 + n2
-simplify' (Mult (Number n1) (Number n2)) = Number $ n1 * n2
-simplify' (Cosine (Number n)) = Number $ cos n
-simplify' (Sine (Number n)) = Number $ sin n
+simplify' (Add (Number n1) (Number n2))     = Number $ n1 + n2
+simplify' (Mult (Number n1) (Number n2))    = Number $ n1 * n2
+simplify' (Cosine (Number n))               = Number $ cos n
+simplify' (Sine (Number n))                 = Number $ sin n
 
 simplify' Variable = Variable
 simplify' (Add e1 e2) = Add (simplify' e1) (simplify' e2)
@@ -224,9 +221,9 @@ differentiate = simplify . differentiate'
 
 -- Just some plain old diff rules
 differentiate' :: Expr -> Expr
-differentiate' (Number _) = Number 0
-differentiate' Variable   = Number 1
-differentiate' (Add op1 op2) = Add (differentiate' op1) (differentiate' op2)
-differentiate' (Mult op1 op2) = Add (Mult (differentiate' op1) op2) (Mult (differentiate' op2) op1)
-differentiate' (Cosine op) = Mult (differentiate' op) (Mult (Number (-1)) (Sine op))
-differentiate' (Sine op) = Mult (differentiate' op) (Cosine op)
+differentiate' (Number _)       = Number 0
+differentiate' Variable         = Number 1
+differentiate' (Add op1 op2)    = Add (differentiate' op1) (differentiate' op2)
+differentiate' (Mult op1 op2)   = Add (Mult (differentiate' op1) op2) (Mult (differentiate' op2) op1)
+differentiate' (Cosine op)      = Mult (differentiate' op) (Mult (Number (-1)) (Sine op))
+differentiate' (Sine op)        = Mult (differentiate' op) (Cosine op)

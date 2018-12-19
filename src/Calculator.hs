@@ -104,8 +104,8 @@ points exp scale (width, height) = [(pixel, cartesianToPixel (eval exp (pixelToC
       cartesianToPixel y = (y - (fromIntegral height * scale) / 2) / ((-1) * scale)
 
 calculateScale :: String -> Double
-calculateScale str = percentage*origScale / (100)
-              where percentage = read (str):: Double
+calculateScale str = percentage*origScale / 100
+              where percentage = read str:: Double
 
 -- Resets the canvas and draws axis              
 resetCanvas :: Canvas -> UI ()
