@@ -74,20 +74,6 @@ floating = do int <- digits
               dec <- digits
               return (merge int dec)
 
--- Addition, multiplication and operator are borrowed form lecture notes              
--- | Parse two numbers, separated by +, and add them
-addition :: Parser Double
-addition = operator '+' (+)
-
--- | Parse two numbers, separated by *, and multiply them
-multiplication :: Parser Double
-multiplication = operator '*' (*)
-
-operator c op = do n1 <- number
-                   char c
-                   n2 <- number
-                   return (n1 `op` n2)
-
 -- |Generalizes out the process of parsing a unary operation                   
 unaryFunction :: String -> (Expr -> Expr) -> Parser Expr
 unaryFunction str unaryF = 
