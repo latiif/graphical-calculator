@@ -27,14 +27,12 @@ setup window =
      diff    <- mkButton "Differentiate"      -- The diff button
 
      --
-     slider  <- mkSlider (50,200) 100 
-     maxZoom <- mkHTML "<b>50%</b>"
-     minZoom <- mkHTML "<b>200%</b>"
+     slider  <- mkSlider (50,200) 100         -- zoom slider
+     maxZoom <- mkHTML "<b>50%</b>"           -- min zoom
+     minZoom <- mkHTML "<b>200%</b>"          -- max zoom
 
      zoomBox <- column [row [pure minZoom, pure slider, pure maxZoom]]
     
-       -- The markup "<i>...</i>" means that the text inside should be rendered
-       -- in italics.
 
      -- Add the user interface elements to the page, creating a specific layout
      formula <- row [pure fx,pure input]
@@ -52,48 +50,54 @@ setup window =
      on UI.click     draw  $ \ _ -> readAndDraw input canvas slider
      on valueChange' input $ \ _ -> readAndDraw input canvas slider
      on UI.click     diff  $ \ _ -> readAndDiff input canvas slider
-     on (domEvent "change") slider $ \ _ -> readAndDraw input canvas slider
+     on (domEvent "change") slider $ \ _ -> readAndDraw input canvas slider --redraw the function when zooming
+
           --    textbox     canvas    slider
 readAndDraw :: Element -> Canvas -> Element -> UI ()
 readAndDraw input canvas slider =
-  do -- Get the current formula (a String) from the input element
+  do 
+    -- Get the current formula (a String) from the input element
      formula <- get value input
+     -- Read the current value of the zoom slider
      scale <- get value slider
-     -- Clear the canvas
+     -- Clear the canvas and redraw the axis
      resetCanvas canvas
-     -- The following code draws the formula text in the canvas and a blue line.
-     -- It should be replaced with code that draws the graph of the function.
+     -- The following code draws the formula text.
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
      case readExpr formula of 
                             (Just exp) -> do
                                               path "blue" (points exp (calculateScale scale) (canHeight,canHeight)) canvas
-                                              UI.fillText ((showExpr . simplify ) exp) (10,canHeight/2) canvas
+                                              UI.fillText ((showExpr . simplify ) exp) (10,canHeight - 40) canvas
 
-                            _ -> UI.fillText "WRONG" (10,canHeight/2) canvas
+                            _ -> UI.fillText "Invalid Syntax" (10,canHeight/2) canvas
 
 
 readAndDiff :: Element -> Canvas -> Element -> UI ()
 readAndDiff input canvas slider =
-  do -- Get the current formula (a String) from the input element
+  do 
+    -- Get the current formula (a String) from the input element
      formula <- get value input
+     -- get the value of the zoom slider
      scale <- get value slider
-     -- The following code draws the formula text in the canvas and a blue line.
-     -- It should be replaced with code that draws the graph of the function.
      set UI.fillStyle (UI.solidColor (UI.RGB 0 0 0)) (pure canvas)
      case readExpr formula of 
                             (Just exp) -> do
                                               
                                               path "red" (points (differentiate exp) (calculateScale scale) (canHeight,canHeight)) canvas
-                                              UI.fillText ((showExpr . differentiate ) exp) (10,canHeight/2 + 20) canvas
+                                              UI.fillText ((showExpr . differentiate ) exp) (10,canHeight - 20) canvas
 
-                            _ -> UI.fillText "WRONG" (10,canHeight/2) canvas                            
+                            _ -> UI.fillText "Invalid Syntax" (10,canHeight/2) canvas                            
+
+-- Helper type to represent points                             
 type Point = (Double, Double)
+
 
 points :: Expr          -- An expression 
         -> Double       -- A scaling value
         -> (Int,Int)    -- The width and height of the drawing area
         -> [Main.Point]
-points exp scale (width, height) = [(pixel, cartesianToPixel (eval exp (pixelToCartesian pixel))) | pixel <- map fromIntegral [0..width]]
+points exp scale (width, height) =
+   [(pixel, cartesianToPixel (eval exp (pixelToCartesian pixel))) | pixel <- map fromIntegral [0..width]]
     where
       -- converts a pixel x-coordinate to a cartesian x-coordinate
       pixelToCartesian :: Double -> Double
@@ -103,6 +107,7 @@ points exp scale (width, height) = [(pixel, cartesianToPixel (eval exp (pixelToC
       cartesianToPixel :: Double -> Double
       cartesianToPixel y = (y - (fromIntegral height * scale) / 2) / ((-1) * scale)
 
+-- converts the slider value to scale
 calculateScale :: String -> Double
 calculateScale str = percentage*origScale / 100
               where percentage = read str:: Double
@@ -112,5 +117,5 @@ resetCanvas :: Canvas -> UI ()
 resetCanvas canvas =
     do 
       clearCanvas canvas
-      path "grey" [(150,0),(150,300)] canvas
-      path "grey" [(0,150),(300,150)] canvas
+      path "grey" [(150,0),(150,300)] canvas -- x-axis
+      path "grey" [(0,150),(300,150)] canvas -- y-axis
